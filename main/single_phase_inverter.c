@@ -8,11 +8,16 @@
 #include "soc/mcpwm_reg.h"
 #include "soc/mcpwm_struct.h"
 
+#define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
+#include "esp_log.h"
+
 /* Pin Definitions*/
 #define GPIO_PWM0A_OUT 15 //Set GPIO 15 as PWM0A
 #define GPIO_PWM0B_OUT 16 //Set GPIO 16 as PWM0B
 
-const uint8_t debug_table[] = {0, 512, 1023, 512};
+static const char *TAG = "SinglePhase";
+const double debug_table[] = {1.0, 50.0, 99.0, 50.0};
+const uint8_t tab_length = 4;
 
 static void mcpwm_example_gpio_initialize()
 {
@@ -24,56 +29,38 @@ static void mcpwm_example_gpio_initialize()
 /**
  * @brief motor moves in forward direction, with duty cycle = duty %
  */
-static void brushed_motor_forward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num, float duty_cycle)
+static void update_pwm(const double *table, const uint8_t tab_len, const mcpwm_unit_t mcpwm_num, const mcpwm_timer_t timer_num)
 {
-    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
-    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_A, duty_cycle);
-    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_A, MCPWM_DUTY_MODE_0); //call this each time, if operator was previously in low/high state
+    /* Output next sample */
+    static uint8_t table_pointer = 0;
+    mcpwm_set_duty_type(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, MCPWM_DUTY_MODE_0);
+    mcpwm_set_duty_type(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, MCPWM_DUTY_MODE_1);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_A, table[table_pointer]);
+    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_B, table[table_pointer]);
+    ++table_pointer;
+    table_pointer %= tab_len;
 }
 
-/**
- * @brief motor moves in backward direction, with duty cycle = duty %
- */
-static void brushed_motor_backward(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num, float duty_cycle)
-{
-    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
-    mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_B, duty_cycle);
-    mcpwm_set_duty_type(mcpwm_num, timer_num, MCPWM_OPR_B, MCPWM_DUTY_MODE_0); //call this each time, if operator was previously in low/high state
-}
-
-/**
- * @brief motor stop
- */
-static void brushed_motor_stop(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num)
-{
-    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_A);
-    mcpwm_set_signal_low(mcpwm_num, timer_num, MCPWM_OPR_B);
-}
-
-/**
- * @brief Configure MCPWM module for brushed dc motor
- */
-static void mcpwm_example_brushed_motor_control(void *arg)
+static void single_phase_inverter_control(void *arg)
 {
     //1. mcpwm gpio initialization
     mcpwm_example_gpio_initialize();
 
     //2. initial mcpwm configuration
-    printf("Configuring Initial Parameters of mcpwm...\n");
+    ESP_LOGI(TAG, "Initialized GPIO");
     mcpwm_config_t pwm_config;
     pwm_config.frequency = 1000; //frequency = 500Hz,
     pwm_config.cmpr_a = 0;       //duty cycle of PWMxA = 0
     pwm_config.cmpr_b = 0;       //duty cycle of PWMxb = 0
     pwm_config.counter_mode = MCPWM_UP_COUNTER;
     pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
-    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config); //Configure PWM0A & PWM0B with above settings
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);                                              //Configure PWM0A & PWM0B with above settings
+    mcpwm_deadtime_enable(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, 5000, 5000); //10us
+    ESP_LOGI(TAG, "Initialized MCPWM");
+    ESP_LOGI(TAG, "Deadtime Enabled");
     while (1)
     {
-        brushed_motor_forward(MCPWM_UNIT_0, MCPWM_TIMER_0, 50.0);
-        vTaskDelay(2000 / portTICK_RATE_MS);
-        brushed_motor_backward(MCPWM_UNIT_0, MCPWM_TIMER_0, 30.0);
-        vTaskDelay(2000 / portTICK_RATE_MS);
-        brushed_motor_stop(MCPWM_UNIT_0, MCPWM_TIMER_0);
+        update_pwm(debug_table, tab_length, MCPWM_UNIT_0, MCPWM_TIMER_0);
         vTaskDelay(2000 / portTICK_RATE_MS);
     }
 }
@@ -81,5 +68,5 @@ static void mcpwm_example_brushed_motor_control(void *arg)
 void app_main()
 {
     printf("Testing brushed motor...\n");
-    xTaskCreate(mcpwm_example_brushed_motor_control, "mcpwm_examlpe_brushed_motor_control", 4096, NULL, 5, NULL);
+    xTaskCreate(single_phase_inverter_control, "single_phase_inverter_control", 4096, NULL, 5, NULL);
 }

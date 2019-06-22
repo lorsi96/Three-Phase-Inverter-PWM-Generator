@@ -3,4 +3,4 @@
 cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(mcpwm_brushed_dc_control)
+project(trhee_phase_inverter_controller)
