@@ -3,7 +3,7 @@
 # project subdirectory.
 #
 
-PROJECT_NAME := trhee_phase_inverter_controller
+PROJECT_NAME := three_phase_inverter_controller
 
 include $(IDF_PATH)/make/project.mk
 

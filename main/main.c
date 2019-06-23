@@ -4,7 +4,8 @@
 #include "freertos/task.h"
 #include "esp_attr.h"
 
-#include "driver/mcpwm.h"
+#include "extended_mcpwm.h"
+//#include "driver/mcpwm.h"
 #include "soc/mcpwm_reg.h"
 #include "soc/mcpwm_struct.h"
 
@@ -33,15 +34,13 @@ static void update_pwm(const double *table, const uint8_t tab_len, const mcpwm_u
 {
     /* Output next sample */
     static uint8_t table_pointer = 0;
-    mcpwm_set_duty_type(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, MCPWM_DUTY_MODE_0);
-    mcpwm_set_duty_type(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, MCPWM_DUTY_MODE_1);
     mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_A, table[table_pointer]);
     mcpwm_set_duty(mcpwm_num, timer_num, MCPWM_OPR_B, table[table_pointer]);
     ++table_pointer;
     table_pointer %= tab_len;
 }
 
-static void single_phase_inverter_control(void *arg)
+static void main_loop(void *arg)
 {
     //1. mcpwm gpio initialization
     mcpwm_example_gpio_initialize();
@@ -54,8 +53,10 @@ static void single_phase_inverter_control(void *arg)
     pwm_config.cmpr_b = 0;       //duty cycle of PWMxb = 0
     pwm_config.counter_mode = MCPWM_UP_COUNTER;
     pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
-    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);                                              //Configure PWM0A & PWM0B with above settings
-    mcpwm_deadtime_enable(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, 5000, 5000); //10us
+    mcpwm_deadtime_enable(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, 1000, 1000); //10us
+    //mcpwm_set_duty_type(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, MCPWM_DUTY_MODE_0);
+    //mcpwm_set_duty_type(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, MCPWM_DUTY_MODE_1);
+    mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config); //Configure PWM0A & PWM0B with above settings
     ESP_LOGI(TAG, "Initialized MCPWM");
     ESP_LOGI(TAG, "Deadtime Enabled");
     while (1)
@@ -68,5 +69,5 @@ static void single_phase_inverter_control(void *arg)
 void app_main()
 {
     printf("Testing brushed motor...\n");
-    xTaskCreate(single_phase_inverter_control, "single_phase_inverter_control", 4096, NULL, 5, NULL);
+    xTaskCreate(main_loop, "three_phase_inverter_controller", 4096, NULL, 5, NULL);
 }
