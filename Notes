@@ -1,11 +1,9 @@
 To do:
 x Make Project dir Work
-- Code Mono phase output with Single Duty, Complementary and with Guard Times
+x Code Mono phase output with Single Duty, Complementary and with Guard Times
 - Code Three phases with constant duty
 - Enable CAP interrupt to change duty acoording to table
 - Interrupt to change mf and duty table
 - Generate API to calculate duty 
 - Button to get table from API and reload table
 
-
-MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE_FROM_PWXA
