@@ -72,14 +72,14 @@ static void three_phase_inverter_pwm_initialize()
     pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
     pwm_config.frequency = DEFAULT_FS;
-    pwm_config.cmpr_a = 50.0;
-    pwm_config.cmpr_b = 50.0;
+    pwm_config.cmpr_a = 25.0;
+    pwm_config.cmpr_b = 25.0;
     pwm_config.counter_mode = MCPWM_UP_COUNTER;
     pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_1, &pwm_config);
     pwm_config.frequency = DEFAULT_FS;
-    pwm_config.cmpr_a = 50.0;
-    pwm_config.cmpr_b = 50.0;
+    pwm_config.cmpr_a = 75.0;
+    pwm_config.cmpr_b = 75.0;
     pwm_config.counter_mode = MCPWM_UP_COUNTER;
     pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_2, &pwm_config);
@@ -101,7 +101,10 @@ static void three_phase_inverter_pwm_initialize()
 static void dispatch_evt_loop(const double *table, const uint8_t tab_len)
 {
     //3.1 Dispatcher Phases initializer
-    static uint32_t r = 0, s, t;
+    static uint32_t r;
+    static uint32_t s;
+    static uint32_t t;
+    r = 0;
     s = tab_len / 3;
     t = tab_len * 2 / 3;
     uint32_t evt = 0;
@@ -111,16 +114,16 @@ static void dispatch_evt_loop(const double *table, const uint8_t tab_len)
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
         if (evt & TIMER0_TEZ_INT_EN) // No need to check every timer as they are in synch
         {
-            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM0A, MCPWM_OPR_A, table[r]);
-            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM0A, MCPWM_OPR_A, table[s]);
-            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM0A, MCPWM_OPR_A, table[t]);
+            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, table[r]);
+            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, table[s]);
+            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_A, table[t]);
             r++;
             s++;
             t++;
             r %= tab_len;
             s %= tab_len;
             t %= tab_len;
-            MCPWM[0]->int_ena.val = 0;
+            //MCPWM[0]->int_ena.val = 0;
         }
     }
 }
