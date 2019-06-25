@@ -500,8 +500,6 @@ esp_err_t mcpwm_carrier_init(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num, co
 esp_err_t mcpwm_deadtime_enable2(mcpwm_unit_t mcpwm_num, mcpwm_timer_t timer_num, mcpwm_deadtime_type_t dt_mode,
                                  uint32_t red, uint32_t fed)
 {
-    ESP_LOGW(MCPWM_TAG, "%d", dt_mode);
-    ESP_LOGW(MCPWM_TAG, "%d", MCPWM_DEADTIME_TYPE_MAX);
     MCPWM_CHECK(mcpwm_num < MCPWM_UNIT_MAX, MCPWM_UNIT_NUM_ERROR, ESP_ERR_INVALID_ARG);
     MCPWM_CHECK(timer_num < MCPWM_TIMER_MAX, MCPWM_TIMER_ERROR, ESP_ERR_INVALID_ARG);
     MCPWM_CHECK(dt_mode < MCPWM_DEADTIME_TYPE_MAX, MCPWM_DB_ERROR, ESP_ERR_INVALID_ARG);
