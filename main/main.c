@@ -141,6 +141,5 @@ static void main_loop(void *arg)
 void app_main()
 {
     timer_queue = xQueueCreate(1, sizeof(uint32_t));
-    printf("Testing brushed motor...\n");
     xTaskCreate(main_loop, "three_phase_inverter_controller", 4096, NULL, 5, NULL);
 }
