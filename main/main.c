@@ -5,6 +5,8 @@
 #include "freertos/queue.h"
 #include "esp_attr.h"
 #include "esp_timer.h"
+#include "esp_sleep.h"
+#include "sdkconfig.h"
 
 #include "extended_mcpwm.h"
 #include "soc/mcpwm_reg.h"
@@ -31,12 +33,16 @@
 #define LINE_FREQ 1          //In Hz
 #define DEFAULT_MF 1
 #define DEFAULT_MA 1
-#define DEFAULT_FS 100
+#define DEFAULT_FS 20000
+#define MASTER_PERIOD 1000000
 
 /* Flow Variables */
 xQueueHandle timer_queue;
 static const char *TAG = "Inverter";
 static mcpwm_dev_t *MCPWM[] = {&MCPWM0};
+static int r;
+static int s;
+static int t;
 
 /* Debug Stuff */
 //const double debug_table[] = sinewave;
@@ -91,54 +97,52 @@ static void three_phase_inverter_pwm_initialize()
     mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
     ESP_LOGI(TAG, "\t2.2 Phase & Deadtime Configured");
     //2.3 Synchronization
-    //mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_SELECT_SYNC0, 0);
-    //mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_SELECT_SYNC0, 0);
+    mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_SELECT_SYNC0, 0);
+    mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_SELECT_SYNC0, 0);
     ESP_LOGI(TAG, "\t2.3 Signals in Phase");
     // 2.4 Interrupts enable & Handler attachment
     MCPWM[0]->int_ena.val = TIMER0_TEZ_INT_EN;
     mcpwm_isr_register(MCPWM_UNIT_0, isr_handler, NULL, ESP_INTR_FLAG_IRAM, NULL);
     ESP_LOGI(TAG, "\t2.3 Interruptions Enabled & Handler Configured");
 }
-static void dispatch_evt_loop(const float *table, const int tab_len)
+
+static void dispatch_evt(void *arg)
 {
     //3.1 Dispatcher Phases initializer
-    static int r;
-    static int s;
-    static int t;
-    uint32_t evt = 0;
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, table[r]);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, table[r]);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, table[s]);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, table[s]);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_A, table[t]);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_B, table[t]);
+    r++;
+    s++;
+    t++;
+    if (r >= tab_len)
+        r = 0;
+    if (s >= tab_len)
+        s = 0;
+    if (t >= tab_len)
+        t = 0;
+    //MCPWM[0]->int_ena.val = 0;
+}
+
+static void three_phase_inverter_timers_table_init(void)
+{
+    const esp_timer_create_args_t periodic_timer_args = {
+        .callback = &dispatch_evt,
+        .name = "master_timer"};
+    esp_timer_handle_t periodic_timer;
+    ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
+    ESP_LOGI(TAG, "> Timer Created");
+
+    ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, MASTER_PERIOD));
+    ESP_LOGI(TAG, "> Timer Initialized");
+
     r = 0;
     s = tab_len / 3;
     t = tab_len * 2 / 3;
     ESP_LOGI(TAG, "\t3.1 Phase Check :%d°:%d°:%d°", r * 360 / tab_len, s * 360 / tab_len, t * 360 / tab_len);
-    static int64_t ts, lts = 0;
-    ts = esp_timer_get_time();
-    while (1)
-    {
-        xQueueReceive(timer_queue, &evt, portMAX_DELAY);
-        if (evt == TIMER0_TEZ_INT_EN) // No need to check every timer as they are in synch
-        {
-            lts = esp_timer_get_time();
-            printf("%ld", (long)(lts - ts);
-            ts = lts;
-            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, table[r]);
-            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, table[r]);
-            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, table[s]);
-            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, table[s]);
-            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_A, table[t]);
-            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_B, table[t]);
-            r++;
-            s++;
-            t++;
-            if (r >= tab_len)
-                r = 0;
-            if (s >= tab_len)
-                s = 0;
-            if (t >= tab_len)
-                t = 0;
-            //MCPWM[0]->int_ena.val = 0;
-            evt = 0;
-        }
-    }
 }
 
 static void main_loop(void *arg)
@@ -148,10 +152,15 @@ static void main_loop(void *arg)
     three_phase_inverter_gpio_initialize();
     //2. Three Phase PWM Initialization
     three_phase_inverter_pwm_initialize();
-
+    //3. Timer & Tab Indexes inialization
+    three_phase_inverter_timers_table_init();
     /*--Loop--*/
-    //3. Dispatcher Call -- Blocking
-    dispatch_evt_loop(sinewave, sine_len);
+    //4. Dispatcher Call -- Blocking
+    while (1)
+    {
+        vTaskDelay(2000 / portTICK_RATE_MS);
+        ESP_LOGI(TAG, "\t3.1 Phase Check :%d°:%d°:%d°", r * 360 / tab_len, s * 360 / tab_len, t * 360 / tab_len);
+    }
 }
 
 void app_main()
