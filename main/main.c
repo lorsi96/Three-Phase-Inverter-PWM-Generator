@@ -4,6 +4,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_attr.h"
+#include "esp_timer.h"
 
 #include "extended_mcpwm.h"
 #include "soc/mcpwm_reg.h"
@@ -27,14 +28,14 @@
 
 /* Three Phase Control Config & Default Parameters */
 #define CUSTOM_DEADTIME 1000 //In ns
-#define LINE_FREQ 50         //In Hz
-#define DEFAULT_MF 15
+#define LINE_FREQ 1          //In Hz
+#define DEFAULT_MF 1
 #define DEFAULT_MA 1
-#define DEFAULT_FS DEFAULT_MF *LINE_FREQ //In Hz
+#define DEFAULT_FS 100
 
 /* Flow Variables */
 xQueueHandle timer_queue;
-static const char *TAG = "3Phase";
+static const char *TAG = "Inverter";
 static mcpwm_dev_t *MCPWM[] = {&MCPWM0};
 
 /* Debug Stuff */
@@ -85,45 +86,57 @@ static void three_phase_inverter_pwm_initialize()
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_2, &pwm_config);
     ESP_LOGI(TAG, "\t2.1 PWMs Configured");
     //2.2 Deadtime and 180° phase between complementary switches config
-    mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE_FROM_PWMXA, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
-    mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE_FROM_PWMXA, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
-    mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE_FROM_PWMXA, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
+    mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
+    mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
+    mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
     ESP_LOGI(TAG, "\t2.2 Phase & Deadtime Configured");
     //2.3 Synchronization
-    mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_SELECT_SYNC0, 0);
-    mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_SELECT_SYNC0, 0);
+    //mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_SELECT_SYNC0, 0);
+    //mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_SELECT_SYNC0, 0);
     ESP_LOGI(TAG, "\t2.3 Signals in Phase");
     // 2.4 Interrupts enable & Handler attachment
     MCPWM[0]->int_ena.val = TIMER0_TEZ_INT_EN;
     mcpwm_isr_register(MCPWM_UNIT_0, isr_handler, NULL, ESP_INTR_FLAG_IRAM, NULL);
     ESP_LOGI(TAG, "\t2.3 Interruptions Enabled & Handler Configured");
 }
-static void dispatch_evt_loop(const double *table, const uint8_t tab_len)
+static void dispatch_evt_loop(const float *table, const int tab_len)
 {
     //3.1 Dispatcher Phases initializer
-    static uint32_t r;
-    static uint32_t s;
-    static uint32_t t;
+    static int r;
+    static int s;
+    static int t;
+    uint32_t evt = 0;
     r = 0;
     s = tab_len / 3;
     t = tab_len * 2 / 3;
-    uint32_t evt = 0;
     ESP_LOGI(TAG, "\t3.1 Phase Check :%d°:%d°:%d°", r * 360 / tab_len, s * 360 / tab_len, t * 360 / tab_len);
+    static int64_t ts, lts = 0;
+    ts = esp_timer_get_time();
     while (1)
     {
         xQueueReceive(timer_queue, &evt, portMAX_DELAY);
-        if (evt & TIMER0_TEZ_INT_EN) // No need to check every timer as they are in synch
+        if (evt == TIMER0_TEZ_INT_EN) // No need to check every timer as they are in synch
         {
+            lts = esp_timer_get_time();
+            printf("%ld", (long)(lts - ts);
+            ts = lts;
             mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, table[r]);
+            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, table[r]);
             mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, table[s]);
+            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, table[s]);
             mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_A, table[t]);
+            mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_B, table[t]);
             r++;
             s++;
             t++;
-            r %= tab_len;
-            s %= tab_len;
-            t %= tab_len;
+            if (r >= tab_len)
+                r = 0;
+            if (s >= tab_len)
+                s = 0;
+            if (t >= tab_len)
+                t = 0;
             //MCPWM[0]->int_ena.val = 0;
+            evt = 0;
         }
     }
 }
