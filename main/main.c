@@ -34,12 +34,12 @@
 #define DEFAULT_MF 1
 #define DEFAULT_MA 1
 #define DEFAULT_FS 20000
-#define MASTER_PERIOD 1000000
+#define MASTER_PERIOD 100
 
 /* Flow Variables */
-xQueueHandle timer_queue;
+//xQueueHandle timer_queue;
 static const char *TAG = "Inverter";
-static mcpwm_dev_t *MCPWM[] = {&MCPWM0};
+//static mcpwm_dev_t *MCPWM[] = {&MCPWM0};
 static int r;
 static int s;
 static int t;
@@ -48,13 +48,13 @@ static int t;
 //const double debug_table[] = sinewave;
 //const uint32_t tab_length = sine_len;
 
-static void IRAM_ATTR isr_handler()
+/*static void IRAM_ATTR isr_handler()
 {
     //99. Interruption handler
     uint32_t evt = MCPWM[0]->int_st.val;
     xQueueSendFromISR(timer_queue, &evt, NULL);
     MCPWM[0]->int_clr.val = evt;
-}
+}*/
 
 static void three_phase_inverter_gpio_initialize()
 {
@@ -101,9 +101,9 @@ static void three_phase_inverter_pwm_initialize()
     mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_SELECT_SYNC0, 0);
     ESP_LOGI(TAG, "\t2.3 Signals in Phase");
     // 2.4 Interrupts enable & Handler attachment
-    MCPWM[0]->int_ena.val = TIMER0_TEZ_INT_EN;
+    /*MCPWM[0]->int_ena.val = TIMER0_TEZ_INT_EN;
     mcpwm_isr_register(MCPWM_UNIT_0, isr_handler, NULL, ESP_INTR_FLAG_IRAM, NULL);
-    ESP_LOGI(TAG, "\t2.3 Interruptions Enabled & Handler Configured");
+    ESP_LOGI(TAG, "\t2.3 Interruptions Enabled & Handler Configured");*/
 }
 
 static void dispatch_evt(void *arg)
@@ -159,12 +159,12 @@ static void main_loop(void *arg)
     while (1)
     {
         vTaskDelay(2000 / portTICK_RATE_MS);
-        ESP_LOGI(TAG, "\t3.1 Phase Check :%d°:%d°:%d°", r * 360 / tab_len, s * 360 / tab_len, t * 360 / tab_len);
+        //ESP_LOGI(TAG, "\t3.1 Phase Check :%d°:%d°:%d°", r * 360 / tab_len, s * 360 / tab_len, t * 360 / tab_len);
     }
 }
 
 void app_main()
 {
-    timer_queue = xQueueCreate(1, sizeof(uint32_t));
+    //timer_queue = xQueueCreate(1, sizeof(uint32_t));
     xTaskCreate(main_loop, "three_phase_inverter_controller", 4096, NULL, 5, NULL);
 }
