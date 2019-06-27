@@ -22,6 +22,8 @@
 #define GPIO_PWM0B_OUT 5
 #define GPIO_PWM1B_OUT 17
 #define GPIO_PWM2B_OUT 16
+#define GPIO_TRIGGER 2
+#define GPIO_OUTPUT_PIN_SEL ((1ULL << GPIO_TRIGGER))
 
 /* ISR Masks Definitions */
 #define TIMER0_TEZ_INT_EN BIT(3)
@@ -33,8 +35,8 @@
 #define LINE_FREQ 1          //In Hz
 #define DEFAULT_MF 1
 #define DEFAULT_MA 1
-#define DEFAULT_FS 20000
-#define MASTER_PERIOD 100
+#define DEFAULT_FS (210 * 50)
+#define MASTER_PERIOD ((int)(1000000 / (21 * 50)))
 
 /* Flow Variables */
 //xQueueHandle timer_queue;
@@ -66,6 +68,14 @@ static void three_phase_inverter_gpio_initialize()
     mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM2A, GPIO_PWM2A_OUT);
     mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM2B, GPIO_PWM2B_OUT);
     ESP_LOGI(TAG, "\t1.1 Initialized GPIO");
+
+    gpio_config_t io_conf;
+    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+    gpio_config(&io_conf);
 }
 
 static void three_phase_inverter_pwm_initialize()
@@ -97,8 +107,8 @@ static void three_phase_inverter_pwm_initialize()
     mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
     ESP_LOGI(TAG, "\t2.2 Phase & Deadtime Configured");
     //2.3 Synchronization
-    mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_SELECT_SYNC0, 0);
-    mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_SELECT_SYNC0, 0);
+    //mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_SELECT_SYNC0, 0);
+    //mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_SELECT_SYNC0, 0);
     ESP_LOGI(TAG, "\t2.3 Signals in Phase");
     // 2.4 Interrupts enable & Handler attachment
     /*MCPWM[0]->int_ena.val = TIMER0_TEZ_INT_EN;
@@ -109,22 +119,25 @@ static void three_phase_inverter_pwm_initialize()
 static void dispatch_evt(void *arg)
 {
     //3.1 Dispatcher Phases initializer
+    static uint8_t toggler = 0;
+    gpio_set_level(GPIO_TRIGGER, toggler++);
+    toggler %= 2;
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, table[r]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, table[r]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, table[s]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, table[s]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_A, table[t]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_B, table[t]);
-    r++;
-    s++;
-    t++;
+    r += 1;
+    s += 1;
+    t += 1;
     if (r >= tab_len)
         r = 0;
     if (s >= tab_len)
         s = 0;
     if (t >= tab_len)
         t = 0;
-    //MCPWM[0]->int_ena.val = 0;
+    //ESP_LOGI(TAG, "\tInterr %d", r);
 }
 
 static void three_phase_inverter_timers_table_init(void)

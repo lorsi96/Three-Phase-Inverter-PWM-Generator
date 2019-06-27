@@ -1,13 +1,14 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 N = 2100
 MA = 1
 
 t = np.linspace(0, 2*np.pi, int(N))
-sine = np.round(100*MA/2.0*(1+np.sin(t)))
-duty_table = [repr(int(a)) for a in sine]
-
-
+sine = np.round(1000*MA*(1+np.sin(t))/2.0)/10
+duty_table = [repr(float(a)) for a in sine]
+plt.plot([float(a) for a in sine])
+plt.show()
 c_code = '''
 # ifndef _SIN_TABLE_
 # define _SIN_TABLE_
