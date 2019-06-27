@@ -22,8 +22,10 @@
 #define GPIO_PWM0B_OUT 5
 #define GPIO_PWM1B_OUT 17
 #define GPIO_PWM2B_OUT 16
-#define GPIO_TRIGGER 2
-#define GPIO_OUTPUT_PIN_SEL ((1ULL << GPIO_TRIGGER))
+#define GPIO_EN_A 4
+#define GPIO_EN_B 2
+#define GPIO_EN_C 15
+#define GPIO_OUTPUT_PIN_SEL ((1ULL << GPIO_EN_A) | (1ULL << GPIO_EN_B) | (1ULL << GPIO_EN_C))
 
 /* ISR Masks Definitions */
 #define TIMER0_TEZ_INT_EN BIT(3)
@@ -31,12 +33,12 @@
 #define TIMER2_TEZ_INT_EN BIT(5)
 
 /* Three Phase Control Config & Default Parameters */
-#define CUSTOM_DEADTIME 1000 //In ns
-#define LINE_FREQ 1          //In Hz
+#define CUSTOM_DEADTIME 100 //In ns
+#define LINE_FREQ 1         //In Hz
 #define DEFAULT_MF 1
 #define DEFAULT_MA 1
-#define DEFAULT_FS (210 * 50)
-#define MASTER_PERIOD ((int)(1000000 / (21 * 50)))
+#define DEFAULT_FS 1000
+#define MASTER_PERIOD 100
 
 /* Flow Variables */
 //xQueueHandle timer_queue;
@@ -68,7 +70,6 @@ static void three_phase_inverter_gpio_initialize()
     mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM2A, GPIO_PWM2A_OUT);
     mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM2B, GPIO_PWM2B_OUT);
     ESP_LOGI(TAG, "\t1.1 Initialized GPIO");
-
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
     io_conf.mode = GPIO_MODE_OUTPUT;
@@ -76,6 +77,9 @@ static void three_phase_inverter_gpio_initialize()
     io_conf.pull_down_en = 0;
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
+    gpio_set_level(GPIO_EN_A, 0);
+    gpio_set_level(GPIO_EN_B, 0);
+    gpio_set_level(GPIO_EN_C, 0);
 }
 
 static void three_phase_inverter_pwm_initialize()
@@ -83,8 +87,8 @@ static void three_phase_inverter_pwm_initialize()
     //2.1 PWM Config for each phase
     mcpwm_config_t pwm_config;
     pwm_config.frequency = DEFAULT_FS;
-    pwm_config.cmpr_a = 50.0;
-    pwm_config.cmpr_b = 50.0;
+    pwm_config.cmpr_a = 90.0;
+    pwm_config.cmpr_b = 90.0;
     pwm_config.counter_mode = MCPWM_UP_COUNTER;
     pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
@@ -119,18 +123,18 @@ static void three_phase_inverter_pwm_initialize()
 static void dispatch_evt(void *arg)
 {
     //3.1 Dispatcher Phases initializer
-    static uint8_t toggler = 0;
+    /* static uint8_t toggler = 0;
     gpio_set_level(GPIO_TRIGGER, toggler++);
-    toggler %= 2;
+    toggler %= 2; */
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, table[r]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, table[r]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, table[s]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, table[s]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_A, table[t]);
     mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_OPR_B, table[t]);
-    r += 1;
-    s += 1;
-    t += 1;
+    r += 10;
+    s += 10;
+    t += 10;
     if (r >= tab_len)
         r = 0;
     if (s >= tab_len)
