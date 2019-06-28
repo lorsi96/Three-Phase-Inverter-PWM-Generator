@@ -33,12 +33,12 @@
 #define TIMER2_TEZ_INT_EN BIT(5)
 
 /* Three Phase Control Config & Default Parameters */
-#define CUSTOM_DEADTIME 100 //In ns
+#define CUSTOM_DEADTIME 500 //In ns
 #define LINE_FREQ 1         //In Hz
 #define DEFAULT_MF 1
 #define DEFAULT_MA 1
 #define DEFAULT_FS 1000
-#define MASTER_PERIOD 100
+#define MASTER_PERIOD 200
 
 /* Flow Variables */
 //xQueueHandle timer_queue;
