@@ -8,7 +8,7 @@
 #include "esp_sleep.h"
 #include "sdkconfig.h"
 
-#include "extended_mcpwm.h"
+#include "driver/mcpwm.h"
 #include "soc/mcpwm_reg.h"
 #include "soc/mcpwm_struct.h"
 
@@ -106,9 +106,9 @@ static void three_phase_inverter_pwm_initialize()
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_2, &pwm_config);
     ESP_LOGI(TAG, "\t2.1 PWMs Configured");
     //2.2 Deadtime and 180° phase between complementary switches config
-    mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
-    mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
-    mcpwm_deadtime_enable2(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
+    mcpwm_deadtime_enable(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
+    mcpwm_deadtime_enable(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
+    mcpwm_deadtime_enable(MCPWM_UNIT_0, MCPWM_TIMER_2, MCPWM_ACTIVE_HIGH_COMPLIMENT_MODE, CUSTOM_DEADTIME, CUSTOM_DEADTIME);
     ESP_LOGI(TAG, "\t2.2 Phase & Deadtime Configured");
     //2.3 Synchronization
     //mcpwm_sync_enable(MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_SELECT_SYNC0, 0);
