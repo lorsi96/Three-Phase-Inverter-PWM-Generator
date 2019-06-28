@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-N = 2100
+N = 210
 MA = 1
 
 t = np.linspace(0, 2*np.pi, int(N))

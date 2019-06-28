@@ -3,7 +3,6 @@
 # project subdirectory.
 #
 PROJECT_NAME := three_phase_inverter_controller
-EXCLUDE_COMPONENTS := mcpwm
 include $(IDF_PATH)/make/project.mk
 
 
