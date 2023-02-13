@@ -31,7 +31,7 @@
 #define DEFAULT_MA 1
 #define DEFAULT_FS (LINE_FREQ * DEFAULT_MF)
 #define TAB_JUMP ((int)(SINE_LENGTH / DEFAULT_MF))
-#define MASTER_PERIOD ((int)1000000 / (DEFAULT_FS))
+#define MASTER_PERIOD ((int)1000000 / (DEFAULT_FS))//não entendi da onde vem o 1000000 aqui!!
 
 /* Inverter Configuration */
 typedef struct
@@ -81,7 +81,7 @@ static void three_phase_inverter_pwm_initialize(uint32_t freq)
     pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
     mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
     pwm_config.frequency = freq;
-    pwm_config.cmpr_a = 25.0;
+    pwm_config.cmpr_a = 25.0; //Não entendi pq a pwm é configurada com 3 duty cycles diferentes!!
     pwm_config.cmpr_b = 25.0;
     pwm_config.counter_mode = MCPWM_UP_COUNTER;
     pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
